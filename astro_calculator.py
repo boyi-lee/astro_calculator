@@ -854,16 +854,229 @@ def compute_part_of_fortune(planets: dict, is_diurnal: bool) -> tuple[str, float
 # 主程式：解析 + 計算 + 輸出報告
 # ─────────────────────────────────────────────
 
+def _parse_planets_v2(md: str) -> dict:
+    """新解析器：支援單行壓縮格式（占星之門最新版）"""
+    planets = {}
+    full = md.replace('\n', ' ')
+    SIGNS_LOCAL = list(SIGN_EN.keys())
+
+    for zh_name in ["太陽","月亮","水星","金星","火星","木星","土星"]:
+        en_name = ZH_PLANET.get(zh_name, "")
+        pat = re.compile(
+            re.escape(zh_name) +
+            r'[^\u4e00-\u9fff]*?℞?\s*'
+            r'([牡金雙巨獅處天射魔水][羊牛子蟹子女秤蠍手羯瓶魚])[座]?\s*'
+            r'(\d+)[°度]\s*(\d+)?[°\'′]?\s*第(\d+)宮'
+        )
+        m = pat.search(full)
+        if m:
+            sign_raw = m.group(1)
+            sign_zh = sign_raw
+            for s in SIGNS_LOCAL:
+                if s.startswith(sign_raw) or sign_raw == s[:2]:
+                    sign_zh = s; break
+            deg = float(m.group(2)) + (float(m.group(3))/60 if m.group(3) else 0)
+            house = int(m.group(4))
+            window = full[max(0, m.start()-8):m.start()+len(zh_name)+4]
+            retro = '℞' in window
+            planets[en_name] = Planet(
+                name_zh=zh_name, name_en=en_name,
+                sign_zh=sign_zh, sign_en=SIGN_EN.get(sign_zh, ""),
+                degree=round(deg, 2), house=house, retrograde=retro
+            )
+
+    # fallback：舊版多行格式
+    if not planets:
+        planets = parse_planets(md)
+    return planets
+
+def _parse_houses_v2(md: str) -> dict:
+    """新解析器：支援單行壓縮格式"""
+    houses = {}
+    full = md.replace('\n', ' ')
+    SIGNS_LOCAL = list(SIGN_EN.keys())
+    PLANET_LIST = ["太陽","月亮","水星","金星","火星","木星","土星"]
+
+    for h in range(1, 13):
+        pat = re.compile(
+            r'第' + str(h) + r'宮\s*'
+            r'([牡金雙巨獅處天射魔水][羊牛子蟹子女秤蠍手羯瓶魚])[座]?\s*'
+            r'[\d°\'′\s]+\s*'
+            r'([太陽月亮水星金星火星木星土星]{2})'
+        )
+        m = pat.search(full)
+        if m:
+            sign_raw = m.group(1)
+            sign_zh = sign_raw
+            for s in SIGNS_LOCAL:
+                if s.startswith(sign_raw): sign_zh = s; break
+            lord_zh = m.group(2)
+            if lord_zh in ZH_PLANET:
+                houses[h] = HouseCusp(
+                    house=h, sign_zh=sign_zh, sign_en=SIGN_EN.get(sign_zh, ""),
+                    degree=0.0, lord_zh=lord_zh, lord_en=ZH_PLANET[lord_zh]
+                )
+
+    if not houses:
+        houses = parse_houses(md)
+    return houses
+
+def _parse_aspects_v2(md: str) -> list:
+    """新解析器：支援單行壓縮格式"""
+    aspects = []
+    full = md.replace('\n', ' ')
+    ASPECT_MAP = {
+        '合相':0, '六分相':60, '四分相':90, '三分相':120,
+        '對分相':180, '二分相':180,
+        '十二分相':30, '半四分相':45, '八分之三相':135, '十二分之五相':150
+    }
+    PTOL = {0, 60, 90, 120, 180}
+    seen = set()
+
+    pat = re.compile(
+        r'([太陽月亮水星金星火星木星土星]{2})\s+'
+        r'([太陽月亮水星金星火星木星土星]{2})\s+'
+        r'([^\d（(]{2,8}?)\s*[（(][^）)]*[）)]\s*([\d.]+)°'
+    )
+    for m in pat.finditer(full):
+        pa, pb = m.group(1), m.group(2)
+        asp_raw, orb = m.group(3).strip(), float(m.group(4))
+        asp = None
+        for name in ASPECT_MAP:
+            if name in asp_raw: asp = name; break
+        if not asp: continue
+        if pa not in ZH_PLANET or pb not in ZH_PLANET: continue
+        key = tuple(sorted([pa, pb])) + (asp,)
+        if key in seen: continue
+        seen.add(key)
+        deg = ASPECT_MAP[asp]
+        asp_name = '對分相' if asp == '二分相' else asp
+        aspects.append(Aspect(
+            planet_a=ZH_PLANET[pa], planet_b=ZH_PLANET[pb],
+            aspect_zh=asp_name, degrees=deg, orb=orb,
+            is_ptolemy=(deg in PTOL),
+            harmony=ASPECT_HARMONY.get(asp_name, "neutral")
+        ))
+
+    if not aspects:
+        aspects = parse_aspects(md)
+    return aspects
+
+def _parse_dignity_v2(md: str, planets: dict):
+    """新解析器：本體之力表"""
+    full = md.replace('\n', ' ')
+    section = full
+    if '行星的本體之力' in full:
+        idx = full.index('行星的本體之力')
+        section = full[idx:idx+800]
+
+    ALL_ZH = ["太陽","月亮","水星","金星","火星","木星","土星"]
+    for zh_name in ALL_ZH:
+        en = ZH_PLANET.get(zh_name, "")
+        if en not in planets: continue
+        p = planets[en]
+
+        # 找到行星那一列的內容
+        others = [re.escape(z) for z in ALL_ZH if z != zh_name]
+        pat = re.compile(re.escape(zh_name) + r'(.{3,150}?)(?=' + '|'.join(others) + r'|ⓘ|$)')
+        m = pat.search(section)
+        if not m: continue
+        row = m.group(1)
+
+        if '廟' in row: p.has_domicile = True
+        if '旺' in row: p.has_exaltation = True
+        if '陷' in row: p.has_detriment = True
+        if '弱' in row: p.has_fall = True
+
+        short = zh_name[0]
+        tm = re.search(short + r'(\d)', row)
+        if tm:
+            p.has_triplicity = True
+            p.triplicity_order = int(tm.group(1))
+
+        # 界與外觀：從表格欄位判斷
+        cols = [c.strip() for c in re.split(r'[\s-]+', row) if c.strip()]
+        for col in cols:
+            if '界' in col: p.has_term = True
+            if '外' in col and ('觀' in col or len(col) <= 3): p.has_face = True
+
+        if not any([p.has_domicile, p.has_exaltation, p.has_triplicity,
+                    p.has_term, p.has_face, p.has_detriment, p.has_fall]):
+            p.is_peregrine = True
+
+def _parse_solar_v2(md: str, planets: dict):
+    """新解析器：速度/距日/東西"""
+    full = md.replace('\n', ' ')
+    section = full
+    if '星體的更多判斷' in full:
+        idx = full.index('星體的更多判斷')
+        section = full[idx:idx+600]
+
+    ALL_ZH = ["太陽","月亮","水星","金星","火星","木星","土星"]
+    for zh_name in ALL_ZH:
+        en = ZH_PLANET.get(zh_name, "")
+        if en not in planets: continue
+        p = planets[en]
+
+        others = [re.escape(z) for z in ALL_ZH if z != zh_name]
+        pat = re.compile(re.escape(zh_name) + r'(.{3,120}?)(?=' + '|'.join(others) + r'|廟旺|ⓘ|$)')
+        m = pat.search(section)
+        if not m: continue
+        row = m.group(1)
+
+        for sp in ['逆行','快','慢','平均','停滯']:
+            if sp in row:
+                p.speed = sp
+                if sp == '逆行': p.retrograde = True
+                break
+
+        for status in ['焦傷','偕日升','在日光下']:
+            if status in row:
+                p.solar_phase = status; break
+
+        if not p.solar_phase:
+            if '東出' in row: p.solar_phase = '東出'
+            elif '西入' in row: p.solar_phase = '西入'
+
+def _parse_receptions_v2(md: str) -> list:
+    """新解析器：互容"""
+    receptions = []
+    full = md.replace('\n', ' ')
+    section = ""
+    if '廟旺互容' in full:
+        idx = full.index('廟旺互容')
+        section = full[max(0,idx-20):idx+400]
+    elif '互容' in full:
+        idx = full.index('互容')
+        section = full[max(0,idx-20):idx+400]
+    else:
+        return receptions
+
+    seen = set()
+    pat = re.compile(r'([太陽月亮水星金星火星木星土星]{2})\s*([太陽月亮水星金星火星木星土星]{2})\s*(廟宮互容|廟旺互容|旺宮互容|互容)')
+    for m in pat.finditer(section):
+        pa, pb, rtype = m.group(1), m.group(2), m.group(3)
+        if pa not in ZH_PLANET or pb not in ZH_PLANET: continue
+        key = tuple(sorted([pa, pb]))
+        if key in seen: continue
+        seen.add(key)
+        receptions.append(Reception(
+            planet_a=ZH_PLANET[pa], planet_b=ZH_PLANET[pb], reception_type=rtype
+        ))
+    return receptions
+
 def parse_chart(md: str) -> Chart:
     chart = Chart()
-    chart.planets = parse_planets(md)
-    chart.houses = parse_houses(md)
-    chart.aspects = parse_aspects(md)
-    chart.receptions = parse_receptions(md)
+
+    # 使用支援單行格式的新解析器
+    chart.planets = _parse_planets_v2(md)
+    chart.houses = _parse_houses_v2(md)
+    chart.aspects = _parse_aspects_v2(md)
+    chart.receptions = _parse_receptions_v2(md)
     chart.is_diurnal = determine_sect(chart.planets)
 
-    parse_dignity_table(md, chart.planets)
-    parse_solar_status(md, chart.planets)
+    _parse_dignity_v2(md, chart.planets)
+    _parse_solar_v2(md, chart.planets)
 
     # 計算分數
     for en, planet in chart.planets.items():
