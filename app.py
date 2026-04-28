@@ -13,10 +13,12 @@ st.set_page_config(page_title="星命師", page_icon="☽", layout="centered")
 
 # ── Google Apps Script 雲端儲存函數 ──
 def upload_to_drive(json_content, file_name, folder_id):
-    # 這是你提供的 GAS 網址
+    """
+    透過你提供的 Apps Script 網址進行傳輸，避開 403 配額問題
+    """
     SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx22eLoVaciMHSt93Ows9UxXnLNdqKzzdCRwI2phFBSZRWhY7RegUanKgUQQGg2Yymo/exec"
     
-    # 確保檔名有 .json 結尾
+    # 強制檢查檔名結尾
     if not file_name.lower().endswith(".json"):
         file_name += ".json"
 
@@ -36,7 +38,7 @@ def upload_to_drive(json_content, file_name, folder_id):
     except Exception as e:
         return "error", str(e)
 
-# ── CSS 樣式 (完整保留你的原始設計) ──
+# ── CSS 樣式 (完整保留你的原始美化設計) ──
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&display=swap');
@@ -59,7 +61,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── 輸入 ──
+# ── 輸入區 ──
 st.markdown('<div class="section-label">盤面資料</div>', unsafe_allow_html=True)
 tab1, tab2 = st.tabs(["📎 上傳 .md 檔案", "📋 貼上文字"])
 md_content = ""
@@ -107,7 +109,7 @@ if st.session_state.get("chart_ok"):
     col2.metric("太陽", 骨架.get("太陽","").split("/")[0].strip())
     col3.metric("日夜間盤", "☉ 晝生" if "晝" in info.get("日夜間盤","") else "☽ 夜生")
 
-    # 七行星力量與尊貴
+    # 七行星本體之力
     st.markdown('<div class="section-label" style="margin-top:1.5rem">七行星本體之力</div>', unsafe_allow_html=True)
     planets_data = report.get("七行星本體之力", {})
     for pname, pdata in planets_data.items():
@@ -131,17 +133,18 @@ if st.session_state.get("chart_ok"):
         )
 
     # 核心相位與飛星
-    with st.expander("托勒密相位（核心權重）", expanded=False):
+    with st.expander("托勒密相位與飛星追蹤", expanded=False):
+        st.markdown("**托勒密相位：**")
         for asp in report.get("托勒密相位（核心）", []):
             w = asp["效力權重"]
             color = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
-            st.markdown(f'<span style="color:{color}">{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）效力：{w:+.1f}</span>', unsafe_allow_html=True)
-
-    with st.expander("飛星追蹤（12宮主星）", expanded=False):
+            st.markdown(f'<span style="color:{color}">{asp["行星A"]} {asp["相位"]} {asp["行星B"]} 效力：{w:+.1f}</span>', unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("**飛星追蹤：**")
         for hk, fv in report.get("飛星追蹤", {}).items():
             st.markdown(f"**{hk}**：{fv['廟主星']} → {fv['飛入']} ｜ {fv['主宰星力量']}")
 
-    # 九大主題分析摘要
+    # 九大主題因子分析
     st.markdown('<div class="section-label" style="margin-top:1.5rem">九大主題因子分析</div>', unsafe_allow_html=True)
     for theme_key, theme_data in all_themes.items():
         theme_zh = THEME_ZH.get(theme_key, theme_key)
@@ -152,21 +155,17 @@ if st.session_state.get("chart_ok"):
             c1.metric("正向", f"+{theme_data.get('positive_score', 0)}")
             c2.metric("負向", f"-{theme_data.get('negative_score', 0)}")
             c3.metric("淨分", f"{net:+.1f}")
-            st.write(f"推論摘要：此主題呈現 {scenario} 趨勢。")
 
     # ── 匯出與雲端備份 ──
     st.markdown("---")
     st.markdown('<div class="section-label">數據匯出與雲端備份</div>', unsafe_allow_html=True)
     
-    # 準備預設檔名
+    # 1. 自訂檔名區
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     default_name = f"星命師報告_{timestamp}"
-
-    # ✨ 新增：自訂檔名輸入框
-    custom_filename = st.text_input("設定報告檔案名稱", value=default_name, placeholder="例如：某某人的星盤分析")
+    custom_filename = st.text_input("設定報告檔案名稱", value=default_name)
     
-    # 確保最終檔名正確
-    final_filename = custom_filename if custom_filename.strip() else default_name
+    final_filename = custom_filename.strip() if custom_filename.strip() else default_name
     if not final_filename.lower().endswith(".json"):
         final_filename += ".json"
 
@@ -176,14 +175,15 @@ if st.session_state.get("chart_ok"):
         "九大主題分析": all_themes
     }, ensure_ascii=False, indent=2)
 
+    # 2. 下載與儲存按鈕
     col_dl, col_drive = st.columns(2)
     with col_dl:
         st.download_button("⬇ 下載完整 JSON", data=export_json, file_name=final_filename, mime="application/json", use_container_width=True)
 
     with col_drive:
-        # 請輸入你新建立的資料夾 ID
-        my_id = "" # 你可以把新 ID 填在這裡當預設
-        folder_id = st.text_input("Drive 資料夾 ID", value=my_id, placeholder="在此貼上新資料夾 ID...", label_visibility="collapsed")
+        # ✨ 關鍵修復：這裡直接鎖定你的新 ID，確保自動帶入
+        my_id = "1mUpclMGj0PiOGI5RNxhkaTJatS_-6o5C" 
+        folder_id = st.text_input("Drive 資料夾 ID", value=my_id, placeholder="貼上新資料夾 ID...", label_visibility="collapsed")
         
         if st.button("☁️ 儲存至 Google 雲端", use_container_width=True):
             if not folder_id:
@@ -192,7 +192,7 @@ if st.session_state.get("chart_ok"):
                 with st.spinner("正在同步至雲端..."):
                     status, msg = upload_to_drive(export_json, final_filename, folder_id)
                     if status == "success":
-                        st.success(f"✓ 成功存為：{final_filename}")
+                        st.success(f"✓ 儲存成功！")
                     else:
                         st.error(f"儲存失敗：{msg}")
 
