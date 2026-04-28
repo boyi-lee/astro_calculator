@@ -13,12 +13,13 @@ st.set_page_config(page_title="星命師", page_icon="☽", layout="centered")
 
 # ── Google Apps Script 雲端儲存函數 ──
 def upload_to_drive(json_content, file_name, folder_id):
-    """
-    透過 Apps Script 轉接橋將內容存入 Google Drive
-    """
     # 這是你提供的 GAS 網址
     SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx22eLoVaciMHSt93Ows9UxXnLNdqKzzdCRwI2phFBSZRWhY7RegUanKgUQQGg2Yymo/exec"
     
+    # 確保檔名有 .json 結尾
+    if not file_name.lower().endswith(".json"):
+        file_name += ".json"
+
     payload = {
         "fileName": file_name,
         "folderId": folder_id,
@@ -92,7 +93,7 @@ if st.button("解析完整盤面", type="primary", use_container_width=True):
             except Exception as e:
                 st.error(f"解析失敗：{str(e)}")
 
-# ── 顯示結果 (完整還原你的豐富細節) ──
+# ── 顯示結果 ──
 if st.session_state.get("chart_ok"):
     report = st.session_state["report"]
     all_themes = st.session_state["all_themes"]
@@ -151,35 +152,49 @@ if st.session_state.get("chart_ok"):
             c1.metric("正向", f"+{theme_data.get('positive_score', 0)}")
             c2.metric("負向", f"-{theme_data.get('negative_score', 0)}")
             c3.metric("淨分", f"{net:+.1f}")
-            st.write(f"推論摘要：此主題呈現 {scenario} 趨勢，淨得分為 {net:+.1f} 分。")
+            st.write(f"推論摘要：此主題呈現 {scenario} 趨勢。")
 
-    # ── 匯出與雲端備份 (整合 GAS 與 預設 ID) ──
+    # ── 匯出與雲端備份 ──
     st.markdown("---")
-    st.markdown('<div class="section-label">匯出給星命師 GEM 與 雲端備份</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">數據匯出與雲端備份</div>', unsafe_allow_html=True)
     
+    # 準備預設檔名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    default_name = f"星命師報告_{timestamp}"
+
+    # ✨ 新增：自訂檔名輸入框
+    custom_filename = st.text_input("設定報告檔案名稱", value=default_name, placeholder="例如：某某人的星盤分析")
+    
+    # 確保最終檔名正確
+    final_filename = custom_filename if custom_filename.strip() else default_name
+    if not final_filename.lower().endswith(".json"):
+        final_filename += ".json"
+
     export_json = json.dumps({
         "盤面基本資訊": report.get("盤面基本資訊", {}),
         "七行星本體之力": report.get("七行星本體之力", {}),
         "九大主題分析": all_themes
     }, ensure_ascii=False, indent=2)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    default_filename = f"星命師報告_{timestamp}.json"
 
     col_dl, col_drive = st.columns(2)
     with col_dl:
-        st.download_button("⬇ 下載完整 JSON", data=export_json, file_name=default_filename, mime="application/json", use_container_width=True)
+        st.download_button("⬇ 下載完整 JSON", data=export_json, file_name=final_filename, mime="application/json", use_container_width=True)
 
     with col_drive:
-        # 預設使用你的 Folder ID
-        my_id = "1mUpclMGj0PiOGI5RNxhkaTJatS_-6o5C"
-        folder_id = st.text_input("Drive 資料夾 ID", value=my_id, label_visibility="collapsed")
+        # 請輸入你新建立的資料夾 ID
+        my_id = "" # 你可以把新 ID 填在這裡當預設
+        folder_id = st.text_input("Drive 資料夾 ID", value=my_id, placeholder="在此貼上新資料夾 ID...", label_visibility="collapsed")
+        
         if st.button("☁️ 儲存至 Google 雲端", use_container_width=True):
-            with st.spinner("正在同步至雲端..."):
-                status, msg = upload_to_drive(export_json, default_filename, folder_id)
-                if status == "success":
-                    st.success(f"✓ 儲存成功！")
-                else:
-                    st.error(f"儲存失敗：{msg}")
+            if not folder_id:
+                st.warning("請先輸入有效的資料夾 ID")
+            else:
+                with st.spinner("正在同步至雲端..."):
+                    status, msg = upload_to_drive(export_json, final_filename, folder_id)
+                    if status == "success":
+                        st.success(f"✓ 成功存為：{final_filename}")
+                    else:
+                        st.error(f"儲存失敗：{msg}")
 
     st.markdown("")
     if st.button("← 重新上傳", use_container_width=True):
