@@ -2,12 +2,54 @@ import streamlit as st
 import json
 import sys
 import os
+from datetime import datetime
+
+# Google Drive API 相關庫
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaInMemoryUpload
 
 sys.path.insert(0, os.path.dirname(__file__))
 from astro_calculator import parse_chart, generate_report, THEME_ZH, HOUSE_TOPICS
 
+# ── 設定 ──
 st.set_page_config(page_title="星命師", page_icon="☽", layout="centered")
 
+# ── Google Drive 上傳函數 ──
+def upload_to_drive(json_content, file_name, folder_id):
+    """
+    透過服務帳號將內容上傳至指定 Google Drive 資料夾
+    """
+    try:
+        if "gcp_service_account" not in st.secrets:
+            return "error", "請先設定 .streamlit/secrets.toml 檔案。"
+        
+        # 從 secrets 取得憑證
+        info = dict(st.secrets["gcp_service_account"])
+        scopes = ['https://www.googleapis.com/auth/drive.file']
+        creds = service_account.Credentials.from_service_account_info(info, scopes=scopes)
+        
+        # 建立服務
+        service = build('drive', 'v3', credentials=creds)
+
+        file_metadata = {
+            'name': file_name,
+            'parents': [folder_id] if folder_id else []
+        }
+        
+        media = MediaInMemoryUpload(json_content.encode('utf-8'), mimetype='application/json')
+        
+        file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id'
+        ).execute()
+        
+        return "success", file.get('id')
+    except Exception as e:
+        return "error", str(e)
+
+# ── CSS 樣式 ──
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&display=swap');
@@ -57,10 +99,9 @@ if st.button("解析完整盤面", type="primary", use_container_width=True):
             try:
                 chart = parse_chart(md_content)
                 if not chart.planets:
-                    st.error("無法解析盤面，請確認檔案格式正確（占星之門 Markdown 格式）")
+                    st.error("無法解析盤面，請確認格式正確")
                     st.stop()
 
-                # 一次計算所有主題
                 base_report = generate_report(chart)
                 all_themes = {}
                 for theme_key in HOUSE_TOPICS:
@@ -72,8 +113,6 @@ if st.button("解析完整盤面", type="primary", use_container_width=True):
                 st.rerun()
             except Exception as e:
                 st.error(f"解析失敗：{str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
 
 # ── 顯示結果 ──
 if st.session_state.get("chart_ok"):
@@ -90,7 +129,7 @@ if st.session_state.get("chart_ok"):
     col2.metric("太陽", 骨架.get("太陽","").split("/")[0].strip())
     col3.metric("日夜間盤", "☉ 晝生" if "晝" in info.get("日夜間盤","") else "☽ 夜生")
 
-    # 七行星
+    # 七行星力量
     st.markdown('<div class="section-label" style="margin-top:1.5rem">七行星本體之力</div>', unsafe_allow_html=True)
     planets_data = report.get("七行星本體之力", {})
     for pname, pdata in planets_data.items():
@@ -99,102 +138,62 @@ if st.session_state.get("chart_ok"):
         sign = pdata.get("星座", "")
         house = pdata.get("宮位", "")
         retro = "℞ " if pdata.get("逆行") == "是" else ""
-        solar = pdata.get("太陽距離狀態", "")
-        solar_mark = f" · {solar}" if solar and solar != "正常" else ""
         css = "strong" if score >= 5 else ("weak" if score < 0 else "medium")
-        dign = [k for k,v in pdata.get("尊貴",{}).items() if v == "✓"]
-        dign_str = " · ".join(dign) if dign else "外來"
-
         st.markdown(
             f'<div class="planet-row">'
             f'<span style="color:#b8962e;width:40px">{pname}</span>'
-            f'<span style="flex:1;color:rgba(245,240,232,0.7)">{retro}{sign}座 {house}{solar_mark}</span>'
-            f'<span style="color:rgba(245,240,232,0.4);font-size:11px;margin-right:8px">{dign_str}</span>'
+            f'<span style="flex:1;color:rgba(245,240,232,0.7)">{retro}{sign}座 {house}</span>'
             f'<span class="{css}">{strength}（{score:+d}）</span>'
             f'</div>',
             unsafe_allow_html=True
         )
 
-    # 相位
-    with st.expander("托勒密相位（核心）", expanded=False):
-        for asp in report.get("托勒密相位（核心）", []):
-            w = asp["效力權重"]
-            color = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
-            st.markdown(f'<span style="color:{color}">{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）效力：{w:+.1f}</span>', unsafe_allow_html=True)
-
-    with st.expander("現代相位（補充）", expanded=False):
-        modern = report.get("現代相位（補充）", [])
-        for asp in modern:
-            st.markdown(f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）')
-        if not modern:
-            st.markdown("無")
-
-    # 飛星
-    with st.expander("飛星追蹤（全部12宮）", expanded=False):
-        for hk, fv in report.get("飛星追蹤", {}).items():
-            st.markdown(f"**{hk}**：{fv['廟主星']} → {fv['飛入']} ｜ {fv['主宰星力量']}")
-
-    # 互容
-    rec = report.get("廟旺互容", [])
-    if rec:
-        with st.expander("廟旺互容", expanded=True):
-            for r in rec:
-                st.markdown(f"**{r['行星A']}** ↔ **{r['行星B']}** · {r['互容類型']}")
-
-    # 各主題摘要
-    st.markdown('<div class="section-label" style="margin-top:1.5rem">九大主題因子分析</div>', unsafe_allow_html=True)
+    # 九大主題摘要
+    st.markdown('<div class="section-label" style="margin-top:1.5rem">主題因子分析推論</div>', unsafe_allow_html=True)
     for theme_key, theme_data in all_themes.items():
         theme_zh = THEME_ZH.get(theme_key, theme_key)
         scenario = theme_data.get("scenario_type", "張力")
-        pos = theme_data.get("positive_score", 0)
-        neg = theme_data.get("negative_score", 0)
         net = theme_data.get("overall_score", 0)
-        color = "#7aad84" if scenario == "順遂" else ("#c4725f" if scenario == "阻礙" else "#d4b254")
-        with st.expander(f"{theme_zh}　｜　{scenario}　（{net:+.1f}）", expanded=False):
-            c1, c2, c3 = st.columns(3)
-            c1.metric("正向", f"+{pos}")
-            c2.metric("負向", f"-{neg}")
-            c3.metric("淨分", f"{net:+.1f}")
+        with st.expander(f"{theme_zh}　｜　{scenario}　（{net:+.1f}）"):
+            st.write(f"正向得分：{theme_data.get('positive_score', 0)}")
+            st.write(f"負向得分：{theme_data.get('negative_score', 0)}")
 
-            fs = theme_data.get("flystar_connections", [])
-            if fs:
-                st.markdown("**飛星：**")
-                for f in fs:
-                    st.markdown(f"　第{f['from_house']}宮 {f['lord']} → 第{f['flies_to']}宮 [{f['lord_strength']}]")
-
-            asps = theme_data.get("relevant_aspects", [])
-            if asps:
-                st.markdown("**相關相位：**")
-                for a in asps[:5]:
-                    w = a['weight']
-                    mark = "◆" if a['is_ptolemy'] else "◇"
-                    color_a = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
-                    st.markdown(f'<span style="color:{color_a}">{mark} {a["a"]} {a["aspect"]} {a["b"]}（{a["orb"]}°）{w:+.1f}</span>', unsafe_allow_html=True)
-
-    # ── 匯出 ──
+    # ── 匯出與雲端備份 ──
     st.markdown("---")
-    st.markdown('<div class="section-label">匯出給星命師 Gem</div>', unsafe_allow_html=True)
-    st.markdown("下載完整 JSON 報告，上傳給 Gemini 星命師 Gem，即可開始對話式解盤。")
-
+    st.markdown('<div class="section-label">數據匯出與備份</div>', unsafe_allow_html=True)
+    
     export = {
         "盤面基本資訊": report.get("盤面基本資訊", {}),
         "七行星本體之力": report.get("七行星本體之力", {}),
-        "托勒密相位（核心）": report.get("托勒密相位（核心）", []),
-        "現代相位（補充）": report.get("現代相位（補充）", []),
-        "廟旺互容": report.get("廟旺互容", []),
-        "飛星追蹤": report.get("飛星追蹤", {}),
-        "宮內多星分析": report.get("宮內多星分析", {}),
         "九大主題分析": all_themes
     }
     export_json = json.dumps(export, ensure_ascii=False, indent=2)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    default_filename = f"星命師報告_{timestamp}.json"
 
-    st.download_button(
-        label="⬇ 下載完整解盤報告 JSON",
-        data=export_json,
-        file_name="星命師_完整解盤報告.json",
-        mime="application/json",
-        use_container_width=True
-    )
+    col_dl, col_drive = st.columns(2)
+    
+    with col_dl:
+        st.download_button(
+            label="⬇ 下載 JSON 報告",
+            data=export_json,
+            file_name=default_filename,
+            mime="application/json",
+            use_container_width=True
+        )
+
+    with col_drive:
+        folder_id = st.text_input("Drive 資料夾 ID", placeholder="在此貼上資料夾 ID...", label_visibility="collapsed")
+        if st.button("☁️ 儲存至 Google 雲端", use_container_width=True):
+            if not folder_id:
+                st.warning("請先輸入目標資料夾 ID")
+            else:
+                with st.spinner("雲端傳輸中..."):
+                    status, msg = upload_to_drive(export_json, default_filename, folder_id)
+                    if status == "success":
+                        st.success(f"✓ 儲存成功！檔案 ID: {msg}")
+                    else:
+                        st.error(f"儲存失敗：{msg}")
 
     st.markdown("")
     if st.button("← 重新上傳", use_container_width=True):
