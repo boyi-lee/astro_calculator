@@ -3,12 +3,13 @@ import json
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(**file**))
 from astro_calculator import parse_chart, generate_report, THEME_ZH, HOUSE_TOPICS
 
-st.set_page_config(page_title="星命師", page_icon="☽", layout="centered")
+st.set_page_config(page_title=“星命師”, page_icon=“☽”, layout=“centered”)
 
-st.markdown("""
+st.markdown(”””
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&display=swap');
 html, body, [class*="css"] { font-family: 'Noto Serif TC', serif; }
@@ -20,9 +21,11 @@ html, body, [class*="css"] { font-family: 'Noto Serif TC', serif; }
 .planet-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(184,150,46,0.08); font-size:13px; }
 .strong { color:#7aad84; } .medium { color:#d4b254; } .weak { color:#c4725f; }
 </style>
-""", unsafe_allow_html=True)
 
-st.markdown("""
+“””, unsafe_allow_html=True)
+
+st.markdown(”””
+
 <div class="title-block">
     <div style="color:#b8962e;font-size:12px;letter-spacing:6px;opacity:0.7">✦ Tetrabiblos ✦</div>
     <div class="title-main">星命師</div>
@@ -31,188 +34,196 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── 輸入 ──
-st.markdown('<div class="section-label">盤面資料</div>', unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["📎 上傳 .md 檔案", "📋 貼上文字"])
-md_content = ""
+st.markdown(’<div class="section-label">盤面資料</div>’, unsafe_allow_html=True)
+
+tab1, tab2 = st.tabs([“📎 上傳 .md 檔案”, “📋 貼上文字”])
+md_content = “”
 
 with tab1:
-    uploaded = st.file_uploader("占星之門盤面", type=["md","txt"], label_visibility="collapsed")
-    if uploaded:
-        md_content = uploaded.read().decode("utf-8")
-        st.success(f"✓ 已載入：{uploaded.name}")
+uploaded = st.file_uploader(“占星之門盤面”, type=[“md”,“txt”], label_visibility=“collapsed”)
+if uploaded:
+md_content = uploaded.read().decode(“utf-8”)
+st.success(f”✓ 已載入：{uploaded.name}”)
 
 with tab2:
-    pasted = st.text_area("貼上盤面 Markdown", height=180, placeholder="將占星之門盤面內容貼在此處...", label_visibility="collapsed")
-    if pasted:
-        md_content = pasted
+pasted = st.text_area(“貼上盤面 Markdown”, height=180, placeholder=“將占星之門盤面內容貼在此處…”, label_visibility=“collapsed”)
+if pasted:
+md_content = pasted
 
-st.markdown("")
+st.markdown(””)
 
-if st.button("解析完整盤面", type="primary", use_container_width=True):
-    if not md_content:
-        st.error("請先上傳盤面檔案或貼上盤面內容")
-    else:
-        with st.spinner("計算中…"):
-            try:
-                chart = parse_chart(md_content)
-                if not chart.planets:
-                    st.error("無法解析盤面，請確認檔案格式正確（占星之門 Markdown 格式）")
-                    st.stop()
+if st.button(“解析完整盤面”, type=“primary”, use_container_width=True):
+if not md_content:
+st.error(“請先上傳盤面檔案或貼上盤面內容”)
+else:
+with st.spinner(“計算中…”):
+try:
+chart = parse_chart(md_content)
+if not chart.planets:
+st.error(“無法解析盤面，請確認檔案格式正確（占星之門 Markdown 格式）”)
+st.stop()
 
-                # 一次計算所有主題
-                base_report = generate_report(chart)
-                all_themes = {}
-                for theme_key in HOUSE_TOPICS:
-                    all_themes[theme_key] = generate_report(chart, theme_key).get(f"主題分析：{THEME_ZH.get(theme_key, theme_key)}", {})
+```
+            # 一次計算所有主題
+            base_report = generate_report(chart)
+            all_themes = {}
+            for theme_key in HOUSE_TOPICS:
+                all_themes[theme_key] = generate_report(chart, theme_key).get(f"主題分析：{THEME_ZH.get(theme_key, theme_key)}", {})
 
-                st.session_state["report"] = base_report
-                st.session_state["all_themes"] = all_themes
-                st.session_state["chart_ok"] = True
-                st.rerun()
-            except Exception as e:
-                st.error(f"解析失敗：{str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
+            st.session_state["report"] = base_report
+            st.session_state["all_themes"] = all_themes
+            st.session_state["chart_ok"] = True
+            st.rerun()
+        except Exception as e:
+            st.error(f"解析失敗：{str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+```
 
 # ── 顯示結果 ──
-if st.session_state.get("chart_ok"):
-    report = st.session_state["report"]
-    all_themes = st.session_state["all_themes"]
 
-    st.markdown("---")
+if st.session_state.get(“chart_ok”):
+report = st.session_state[“report”]
+all_themes = st.session_state[“all_themes”]
 
-    # 基本資訊
-    info = report.get("盤面基本資訊", {})
-    骨架 = info.get("三骨架", {})
-    col1, col2, col3 = st.columns(3)
-    col1.metric("上升", 骨架.get("上升","").split("/")[0].strip())
-    col2.metric("太陽", 骨架.get("太陽","").split("/")[0].strip())
-    col3.metric("日夜間盤", "☉ 晝生" if "晝" in info.get("日夜間盤","") else "☽ 夜生")
+```
+st.markdown("---")
 
-    # 七行星
-    st.markdown('<div class="section-label" style="margin-top:1.5rem">七行星本體之力</div>', unsafe_allow_html=True)
-    planets_data = report.get("七行星本體之力", {})
-    for pname, pdata in planets_data.items():
-        score = pdata.get("綜合尊貴分數", 0)
-        strength = pdata.get("力量等級", "")
-        sign = pdata.get("星座", "")
-        house = pdata.get("宮位", "")
-        retro = "℞ " if pdata.get("逆行") == "是" else ""
-        solar = pdata.get("太陽距離狀態", "")
-        solar_mark = f" · {solar}" if solar and solar != "正常" else ""
-        css = "strong" if score >= 5 else ("weak" if score < 0 else "medium")
-        dign = [k for k,v in pdata.get("尊貴",{}).items() if v == "✓"]
-        dign_str = " · ".join(dign) if dign else "外來"
+# 基本資訊
+info = report.get("盤面基本資訊", {})
+骨架 = info.get("三骨架", {})
+col1, col2, col3 = st.columns(3)
+col1.metric("上升", 骨架.get("上升","").split("/")[0].strip())
+col2.metric("太陽", 骨架.get("太陽","").split("/")[0].strip())
+col3.metric("日夜間盤", "☉ 晝生" if "晝" in info.get("日夜間盤","") else "☽ 夜生")
 
-        st.markdown(
-            f'<div class="planet-row">'
-            f'<span style="color:#b8962e;width:40px">{pname}</span>'
-            f'<span style="flex:1;color:rgba(245,240,232,0.7)">{retro}{sign}座 {house}{solar_mark}</span>'
-            f'<span style="color:rgba(245,240,232,0.4);font-size:11px;margin-right:8px">{dign_str}</span>'
-            f'<span class="{css}">{strength}（{score:+d}）</span>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
+# 七行星
+st.markdown('<div class="section-label" style="margin-top:1.5rem">七行星本體之力</div>', unsafe_allow_html=True)
+planets_data = report.get("七行星本體之力", {})
+for pname, pdata in planets_data.items():
+    score = pdata.get("綜合尊貴分數", 0)
+    strength = pdata.get("力量等級", "")
+    sign = pdata.get("星座", "")
+    house = pdata.get("宮位", "")
+    retro = "℞ " if pdata.get("逆行") == "是" else ""
+    solar = pdata.get("太陽距離狀態", "")
+    solar_mark = f" · {solar}" if solar and solar != "正常" else ""
+    css = "strong" if score >= 5 else ("weak" if score < 0 else "medium")
+    dign = [k for k,v in pdata.get("尊貴",{}).items() if v == "✓"]
+    dign_str = " · ".join(dign) if dign else "外來"
 
-    # 相位
-    with st.expander("托勒密相位（核心）", expanded=False):
-        for asp in report.get("托勒密相位（核心）", []):
-            w = asp["效力權重"]
-            color = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
-            st.markdown(f'<span style="color:{color}">{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）效力：{w:+.1f}</span>', unsafe_allow_html=True)
-
-    with st.expander("現代相位（補充）", expanded=False):
-        modern = report.get("現代相位（補充）", [])
-        for asp in modern:
-            st.markdown(f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）')
-        if not modern:
-            st.markdown("無")
-
-    # 飛星
-    with st.expander("飛星追蹤（全部12宮）", expanded=False):
-        for hk, fv in report.get("飛星追蹤", {}).items():
-            st.markdown(f"**{hk}**：{fv['廟主星']} → {fv['飛入']} ｜ {fv['主宰星力量']}")
-
-    # 互容
-    rec = report.get("廟旺互容", [])
-    if rec:
-        with st.expander("廟旺互容", expanded=True):
-            for r in rec:
-                st.markdown(f"**{r['行星A']}** ↔ **{r['行星B']}** · {r['互容類型']}")
-
-    # 各主題摘要
-    st.markdown('<div class="section-label" style="margin-top:1.5rem">九大主題因子分析</div>', unsafe_allow_html=True)
-    for theme_key, theme_data in all_themes.items():
-        theme_zh = THEME_ZH.get(theme_key, theme_key)
-        scenario = theme_data.get("scenario_type", "張力")
-        pos = theme_data.get("positive_score", 0)
-        neg = theme_data.get("negative_score", 0)
-        net = theme_data.get("overall_score", 0)
-        color = "#7aad84" if scenario == "順遂" else ("#c4725f" if scenario == "阻礙" else "#d4b254")
-        with st.expander(f"{theme_zh}　｜　{scenario}　（{net:+.1f}）", expanded=False):
-            c1, c2, c3 = st.columns(3)
-            c1.metric("正向", f"+{pos}")
-            c2.metric("負向", f"-{neg}")
-            c3.metric("淨分", f"{net:+.1f}")
-
-            fs = theme_data.get("flystar_connections", [])
-            if fs:
-                st.markdown("**飛星：**")
-                for f in fs:
-                    st.markdown(f"　第{f['from_house']}宮 {f['lord']} → 第{f['flies_to']}宮 [{f['lord_strength']}]")
-
-            asps = theme_data.get("relevant_aspects", [])
-            if asps:
-                st.markdown("**相關相位：**")
-                for a in asps[:5]:
-                    w = a['weight']
-                    mark = "◆" if a['is_ptolemy'] else "◇"
-                    color_a = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
-                    st.markdown(f'<span style="color:{color_a}">{mark} {a["a"]} {a["aspect"]} {a["b"]}（{a["orb"]}°）{w:+.1f}</span>', unsafe_allow_html=True)
-
-    # ── 匯出 ──
-    st.markdown("---")
-    st.markdown('<div class="section-label">匯出給星命師 Gem</div>', unsafe_allow_html=True)
-    st.markdown("下載完整 JSON 報告，上傳給 Gemini 星命師 Gem，即可開始對話式解盤。")
-
-    export = {
-        "盤面基本資訊": report.get("盤面基本資訊", {}),
-        "七行星本體之力": report.get("七行星本體之力", {}),
-        "托勒密相位（核心）": report.get("托勒密相位（核心）", []),
-        "現代相位（補充）": report.get("現代相位（補充）", []),
-        "廟旺互容": report.get("廟旺互容", []),
-        "飛星追蹤": report.get("飛星追蹤", {}),
-        "宮內多星分析": report.get("宮內多星分析", {}),
-        "九大主題分析": all_themes
-    }
-    export_json = json.dumps(export, ensure_ascii=False, indent=2)
-
-    st.download_button(
-        label="⬇ 下載完整解盤報告 JSON",
-        data=export_json,
-        file_name="星命師_完整解盤報告.json",
-        mime="application/json",
-        use_container_width=True
+    st.markdown(
+        f'<div class="planet-row">'
+        f'<span style="color:#b8962e;width:40px">{pname}</span>'
+        f'<span style="flex:1;color:rgba(245,240,232,0.7)">{retro}{sign}座 {house}{solar_mark}</span>'
+        f'<span style="color:rgba(245,240,232,0.4);font-size:11px;margin-right:8px">{dign_str}</span>'
+        f'<span class="{css}">{strength}（{score:+d}）</span>'
+        f'</div>',
+        unsafe_allow_html=True
     )
 
-    st.markdown("")
-    if st.button("← 重新上傳", use_container_width=True):
-        for k in ["report","all_themes","chart_ok"]:
-            st.session_state.pop(k, None)
-        st.rerun()
+# 相位
+with st.expander("托勒密相位（核心）", expanded=False):
+    for asp in report.get("托勒密相位（核心）", []):
+        w = asp["效力權重"]
+        color = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
+        st.markdown(f'<span style="color:{color}">{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）效力：{w:+.1f}</span>', unsafe_allow_html=True)
 
+with st.expander("現代相位（補充）", expanded=False):
+    modern = report.get("現代相位（補充）", [])
+    for asp in modern:
+        st.markdown(f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）')
+    if not modern:
+        st.markdown("無")
+
+# 飛星
+with st.expander("飛星追蹤（全部12宮）", expanded=False):
+    for hk, fv in report.get("飛星追蹤", {}).items():
+        st.markdown(f"**{hk}**：{fv['廟主星']} → {fv['飛入']} ｜ {fv['主宰星力量']}")
+
+# 互容
+rec = report.get("廟旺互容", [])
+if rec:
+    with st.expander("廟旺互容", expanded=True):
+        for r in rec:
+            st.markdown(f"**{r['行星A']}** ↔ **{r['行星B']}** · {r['互容類型']}")
+
+# 各主題摘要
+st.markdown('<div class="section-label" style="margin-top:1.5rem">九大主題因子分析</div>', unsafe_allow_html=True)
+for theme_key, theme_data in all_themes.items():
+    theme_zh = THEME_ZH.get(theme_key, theme_key)
+    scenario = theme_data.get("scenario_type", "張力")
+    pos = theme_data.get("positive_score", 0)
+    neg = theme_data.get("negative_score", 0)
+    net = theme_data.get("overall_score", 0)
+    color = "#7aad84" if scenario == "順遂" else ("#c4725f" if scenario == "阻礙" else "#d4b254")
+    with st.expander(f"{theme_zh}　｜　{scenario}　（{net:+.1f}）", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("正向", f"+{pos}")
+        c2.metric("負向", f"-{neg}")
+        c3.metric("淨分", f"{net:+.1f}")
+
+        fs = theme_data.get("flystar_connections", [])
+        if fs:
+            st.markdown("**飛星：**")
+            for f in fs:
+                st.markdown(f"　第{f['from_house']}宮 {f['lord']} → 第{f['flies_to']}宮 [{f['lord_strength']}]")
+
+        asps = theme_data.get("relevant_aspects", [])
+        if asps:
+            st.markdown("**相關相位：**")
+            for a in asps[:5]:
+                w = a['weight']
+                mark = "◆" if a['is_ptolemy'] else "◇"
+                color_a = "#7aad84" if w > 0 else ("#c4725f" if w < 0 else "rgba(245,240,232,0.4)")
+                st.markdown(f'<span style="color:{color_a}">{mark} {a["a"]} {a["aspect"]} {a["b"]}（{a["orb"]}°）{w:+.1f}</span>', unsafe_allow_html=True)
+
+# ── 匯出 ──
+st.markdown("---")
+st.markdown('<div class="section-label">匯出給星命師 Gem</div>', unsafe_allow_html=True)
+st.markdown("下載完整 JSON 報告，上傳給 Gemini 星命師 Gem，即可開始對話式解盤。")
+
+export = {
+    "盤面基本資訊": report.get("盤面基本資訊", {}),
+    "七行星本體之力": report.get("七行星本體之力", {}),
+    "托勒密相位（核心）": report.get("托勒密相位（核心）", []),
+    "現代相位（補充）": report.get("現代相位（補充）", []),
+    "廟旺互容": report.get("廟旺互容", []),
+    "飛星追蹤": report.get("飛星追蹤", {}),
+    "宮內多星分析": report.get("宮內多星分析", {}),
+    "九大主題分析": all_themes
+}
+export_json = json.dumps(export, ensure_ascii=False, indent=2)
+
+st.download_button(
+    label="⬇ 下載完整解盤報告 JSON",
+    data=export_json,
+    file_name="星命師_完整解盤報告.json",
+    mime="application/json",
+    use_container_width=True
+)
+
+st.markdown("")
+if st.button("← 重新上傳", use_container_width=True):
+    for k in ["report","all_themes","chart_ok"]:
+        st.session_state.pop(k, None)
+    st.rerun()
+```
 
 # ── 頁面設定 ──
+
 st.set_page_config(
-    page_title="星命師",
-    page_icon="☽",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+page_title=“星命師”,
+page_icon=“☽”,
+layout=“centered”,
+initial_sidebar_state=“collapsed”
 )
 
 # ── 樣式 ──
-st.markdown("""
+
+st.markdown(”””
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&display=swap');
 
@@ -287,10 +298,13 @@ html, body, [class*="css"] {
 .aspect-positive { color: rgba(122,173,132,0.8); }
 .aspect-negative { color: rgba(196,114,95,0.8); }
 </style>
-""", unsafe_allow_html=True)
+
+“””, unsafe_allow_html=True)
 
 # ── 標題 ──
-st.markdown("""
+
+st.markdown(”””
+
 <div class="title-block">
     <div class="title-symbol">✦ Tetrabiblos ✦</div>
     <div class="title-main">星命師</div>
@@ -299,257 +313,264 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Session State ──
-if "chart" not in st.session_state:
-    st.session_state.chart = None
-if "report" not in st.session_state:
-    st.session_state.report = None
-if "theme" not in st.session_state:
-    st.session_state.theme = "personality"
-if "md_content" not in st.session_state:
-    st.session_state.md_content = ""
+
+if “chart” not in st.session_state:
+st.session_state.chart = None
+if “report” not in st.session_state:
+st.session_state.report = None
+if “theme” not in st.session_state:
+st.session_state.theme = “personality”
+if “md_content” not in st.session_state:
+st.session_state.md_content = “”
 
 # ── 盤面輸入 ──
-st.markdown('<div class="section-label">盤面資料</div>', unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["📎 上傳 .md 檔案", "📋 貼上文字"])
+st.markdown(’<div class="section-label">盤面資料</div>’, unsafe_allow_html=True)
+
+tab1, tab2 = st.tabs([“📎 上傳 .md 檔案”, “📋 貼上文字”])
 
 with tab1:
-    uploaded = st.file_uploader("占星之門盤面檔案", type=["md", "txt"], label_visibility="collapsed")
-    if uploaded:
-        st.session_state.md_content = uploaded.read().decode("utf-8")
-        st.success(f"✓ 已載入：{uploaded.name}")
+uploaded = st.file_uploader(“占星之門盤面檔案”, type=[“md”, “txt”], label_visibility=“collapsed”)
+if uploaded:
+st.session_state.md_content = uploaded.read().decode(“utf-8”)
+st.success(f”✓ 已載入：{uploaded.name}”)
 
 with tab2:
-    pasted = st.text_area(
-        "貼上盤面 Markdown",
-        height=200,
-        placeholder="將占星之門盤面的 Markdown 內容貼在此處...",
-        label_visibility="collapsed"
-    )
-    if pasted:
-        st.session_state.md_content = pasted
+pasted = st.text_area(
+“貼上盤面 Markdown”,
+height=200,
+placeholder=“將占星之門盤面的 Markdown 內容貼在此處…”,
+label_visibility=“collapsed”
+)
+if pasted:
+st.session_state.md_content = pasted
 
 # ── 主題選擇 ──
-st.markdown('<div class="section-label" style="margin-top:1.5rem">解盤主題</div>', unsafe_allow_html=True)
+
+st.markdown(’<div class="section-label" style="margin-top:1.5rem">解盤主題</div>’, unsafe_allow_html=True)
 
 THEME_OPTIONS = {
-    "personality":   "☿ 性格特質",
-    "wealth":        "☽ 財富",
-    "marriage":      "♀ 婚姻伴侶",
-    "career_status": "☉ 事業地位",
-    "health":        "♂ 健康",
-    "children":      "♃ 子女",
-    "travel":        "♄ 旅行移居",
-    "lifespan":      "⊕ 壽命能量",
-    "death_quality": "★ 死亡品質",
+“personality”:   “☿ 性格特質”,
+“wealth”:        “☽ 財富”,
+“marriage”:      “♀ 婚姻伴侶”,
+“career_status”: “☉ 事業地位”,
+“health”:        “♂ 健康”,
+“children”:      “♃ 子女”,
+“travel”:        “♄ 旅行移居”,
+“lifespan”:      “⊕ 壽命能量”,
+“death_quality”: “★ 死亡品質”,
 }
 
 cols = st.columns(3)
 theme_keys = list(THEME_OPTIONS.keys())
 for i, (key, label) in enumerate(THEME_OPTIONS.items()):
-    with cols[i % 3]:
-        if st.button(
-            label,
-            key=f"theme_{key}",
-            use_container_width=True,
-            type="primary" if st.session_state.theme == key else "secondary"
-        ):
-            st.session_state.theme = key
-            st.rerun()
+with cols[i % 3]:
+if st.button(
+label,
+key=f”theme_{key}”,
+use_container_width=True,
+type=“primary” if st.session_state.theme == key else “secondary”
+):
+st.session_state.theme = key
+st.rerun()
 
-st.markdown(f"**目前選擇：** {THEME_OPTIONS.get(st.session_state.theme, '')}", unsafe_allow_html=False)
+st.markdown(f”**目前選擇：** {THEME_OPTIONS.get(st.session_state.theme, ‘’)}”, unsafe_allow_html=False)
 
 # ── 開始解盤 ──
-st.markdown("")
-if st.button("開始解盤", type="primary", use_container_width=True):
-    if not st.session_state.md_content:
-        st.error("請先上傳盤面檔案或貼上盤面內容")
-    else:
-        with st.spinner("解析盤面中…"):
-            try:
-                chart = parse_chart(st.session_state.md_content)
-                report = generate_report(chart, st.session_state.theme)
-                st.session_state.chart = chart
-                st.session_state.report = report
-                st.rerun()
-            except Exception as e:
-                st.error(f"解盤失敗：{str(e)}")
+
+st.markdown(””)
+if st.button(“開始解盤”, type=“primary”, use_container_width=True):
+if not st.session_state.md_content:
+st.error(“請先上傳盤面檔案或貼上盤面內容”)
+else:
+with st.spinner(“解析盤面中…”):
+try:
+chart = parse_chart(st.session_state.md_content)
+report = generate_report(chart, st.session_state.theme)
+st.session_state.chart = chart
+st.session_state.report = report
+st.rerun()
+except Exception as e:
+st.error(f”解盤失敗：{str(e)}”)
 
 # ── 顯示結果 ──
+
 if st.session_state.report:
-    report = st.session_state.report
-    chart = st.session_state.chart
-    theme_zh = THEME_NAMES.get(st.session_state.theme, st.session_state.theme)
+report = st.session_state.report
+chart = st.session_state.chart
+theme_zh = THEME_NAMES.get(st.session_state.theme, st.session_state.theme)
 
-    st.markdown("---")
+```
+st.markdown("---")
 
-    # 主題標題 + 場景類型
-    theme_key_result = f"主題分析：{theme_zh}"
-    theme_data = report.get(theme_key_result, {})
-    scenario = theme_data.get("scenario_type", "張力")
+# 主題標題 + 場景類型
+theme_key_result = f"主題分析：{theme_zh}"
+theme_data = report.get(theme_key_result, {})
+scenario = theme_data.get("scenario_type", "張力")
 
-    tag_map = {"順遂": "tag-good", "張力": "tag-tension", "阻礙": "tag-hard"}
-    tag_class = tag_map.get(scenario, "tag-tension")
+tag_map = {"順遂": "tag-good", "張力": "tag-tension", "阻礙": "tag-hard"}
+tag_class = tag_map.get(scenario, "tag-tension")
 
-    st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid rgba(184,150,46,0.25)">
-        <span style="font-size:11px;letter-spacing:3px;color:#b8962e;opacity:0.7;text-transform:uppercase">{theme_zh}</span>
-        <span class="{tag_class}">{scenario}</span>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"""
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid rgba(184,150,46,0.25)">
+    <span style="font-size:11px;letter-spacing:3px;color:#b8962e;opacity:0.7;text-transform:uppercase">{theme_zh}</span>
+    <span class="{tag_class}">{scenario}</span>
+</div>
+""", unsafe_allow_html=True)
 
-    # ── 主題因子分析 ──
-    if theme_data:
-        positive = theme_data.get("positive_score", 0)
-        negative = theme_data.get("negative_score", 0)
-        net = theme_data.get("overall_score", 0)
+# ── 主題因子分析 ──
+if theme_data:
+    positive = theme_data.get("positive_score", 0)
+    negative = theme_data.get("negative_score", 0)
+    net = theme_data.get("overall_score", 0)
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("正向因子", f"+{positive}")
-        col2.metric("負向因子", f"-{negative}")
-        col3.metric("淨分", f"{net:+.1f}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("正向因子", f"+{positive}")
+    col2.metric("負向因子", f"-{negative}")
+    col3.metric("淨分", f"{net:+.1f}")
 
-        # 宮位分析
-        house_analysis = theme_data.get("house_analysis", {})
-        if house_analysis:
-            st.markdown('<div class="section-label" style="margin-top:1rem">主題宮位分析</div>', unsafe_allow_html=True)
-            for hkey, hdata in house_analysis.items():
-                house_num = hkey.replace("house_", "第") + "宮"
-                lord = hdata.get("lord", "")
-                lord_strength = hdata.get("lord_strength", "")
-                lord_house = hdata.get("lord_in_house", "")
-                planets_in = hdata.get("planets_in_house", [])
+    # 宮位分析
+    house_analysis = theme_data.get("house_analysis", {})
+    if house_analysis:
+        st.markdown('<div class="section-label" style="margin-top:1rem">主題宮位分析</div>', unsafe_allow_html=True)
+        for hkey, hdata in house_analysis.items():
+            house_num = hkey.replace("house_", "第") + "宮"
+            lord = hdata.get("lord", "")
+            lord_strength = hdata.get("lord_strength", "")
+            lord_house = hdata.get("lord_in_house", "")
+            planets_in = hdata.get("planets_in_house", [])
 
-                col_a, col_b = st.columns([1, 2])
-                with col_a:
-                    st.markdown(f"**{house_num}**")
-                with col_b:
-                    info = f"宮主 {lord} → 第{lord_house}宮 [{lord_strength}]"
-                    st.markdown(info)
-                    if planets_in:
-                        for p in planets_in:
-                            retro = " ℞" if p.get("retrograde") else ""
-                            st.markdown(f"　宮內：{p['planet']} {p['sign']}{retro} [{p['strength']}]")
+            col_a, col_b = st.columns([1, 2])
+            with col_a:
+                st.markdown(f"**{house_num}**")
+            with col_b:
+                info = f"宮主 {lord} → 第{lord_house}宮 [{lord_strength}]"
+                st.markdown(info)
+                if planets_in:
+                    for p in planets_in:
+                        retro = " ℞" if p.get("retrograde") else ""
+                        st.markdown(f"　宮內：{p['planet']} {p['sign']}{retro} [{p['strength']}]")
 
-        # 飛星
-        flystar = theme_data.get("flystar_connections", [])
-        if flystar:
-            st.markdown('<div class="section-label" style="margin-top:1rem">飛星連結</div>', unsafe_allow_html=True)
-            for fs in flystar:
-                st.markdown(f"第{fs['from_house']}宮 **{fs['lord']}** → 第{fs['flies_to']}宮 ｜ {fs['lord_strength']}")
+    # 飛星
+    flystar = theme_data.get("flystar_connections", [])
+    if flystar:
+        st.markdown('<div class="section-label" style="margin-top:1rem">飛星連結</div>', unsafe_allow_html=True)
+        for fs in flystar:
+            st.markdown(f"第{fs['from_house']}宮 **{fs['lord']}** → 第{fs['flies_to']}宮 ｜ {fs['lord_strength']}")
 
-        # 相關相位
-        relevant_aspects = theme_data.get("relevant_aspects", [])
-        if relevant_aspects:
-            st.markdown('<div class="section-label" style="margin-top:1rem">相關相位</div>', unsafe_allow_html=True)
-            for asp in relevant_aspects[:8]:
-                ptol_mark = "◆" if asp["is_ptolemy"] else "◇"
-                weight = asp["weight"]
-                color_class = "aspect-positive" if weight > 0 else ("aspect-negative" if weight < 0 else "")
-                st.markdown(
-                    f'<div class="aspect-row {color_class}">{ptol_mark} {asp["a"]} {asp["aspect"]} {asp["b"]} （{asp["orb"]}°）效力：{weight:+.1f}</div>',
-                    unsafe_allow_html=True
-                )
-
-    st.markdown("---")
-
-    # ── 七行星本體之力 ──
-    with st.expander("七行星本體之力", expanded=False):
-        planets_data = report.get("七行星本體之力", {})
-        for planet_name, pdata in planets_data.items():
-            score = pdata.get("綜合尊貴分數", 0)
-            strength = pdata.get("力量等級", "")
-            sign = pdata.get("星座", "")
-            house = pdata.get("宮位", "")
-            retro = pdata.get("逆行", "否")
-            solar = pdata.get("太陽距離狀態", "")
-
-            score_class = "score-strong" if score >= 5 else ("score-weak" if score < 0 else "score-medium")
-            retro_mark = " ℞" if retro == "是" else ""
-            solar_mark = f" · {solar}" if solar and solar != "正常" else ""
-
+    # 相關相位
+    relevant_aspects = theme_data.get("relevant_aspects", [])
+    if relevant_aspects:
+        st.markdown('<div class="section-label" style="margin-top:1rem">相關相位</div>', unsafe_allow_html=True)
+        for asp in relevant_aspects[:8]:
+            ptol_mark = "◆" if asp["is_ptolemy"] else "◇"
+            weight = asp["weight"]
+            color_class = "aspect-positive" if weight > 0 else ("aspect-negative" if weight < 0 else "")
             st.markdown(
-                f'<div class="planet-row">'
-                f'<span class="planet-name">{planet_name}</span>'
-                f'<span class="planet-pos">{sign} {house}{retro_mark}{solar_mark}</span>'
-                f'<span class="planet-score {score_class}">{strength}（{score:+d}）</span>'
-                f'</div>',
+                f'<div class="aspect-row {color_class}">{ptol_mark} {asp["a"]} {asp["aspect"]} {asp["b"]} （{asp["orb"]}°）效力：{weight:+.1f}</div>',
                 unsafe_allow_html=True
             )
 
-    # ── 托勒密相位 ──
-    with st.expander("托勒密相位（核心）", expanded=False):
-        for asp in report.get("托勒密相位（核心）", []):
-            weight = asp["效力權重"]
-            color = "aspect-positive" if weight > 0 else ("aspect-negative" if weight < 0 else "")
-            st.markdown(
-                f'<div class="aspect-row {color}">'
-                f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} '
-                f'（{asp["容許度"]}）效力：{weight:+.1f}'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+st.markdown("---")
 
-    # ── 現代相位 ──
-    with st.expander("現代相位（補充）", expanded=False):
-        modern = report.get("現代相位（補充）", [])
-        if modern:
-            for asp in modern:
-                st.markdown(f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）')
-        else:
-            st.markdown("無現代相位")
+# ── 七行星本體之力 ──
+with st.expander("七行星本體之力", expanded=False):
+    planets_data = report.get("七行星本體之力", {})
+    for planet_name, pdata in planets_data.items():
+        score = pdata.get("綜合尊貴分數", 0)
+        strength = pdata.get("力量等級", "")
+        sign = pdata.get("星座", "")
+        house = pdata.get("宮位", "")
+        retro = pdata.get("逆行", "否")
+        solar = pdata.get("太陽距離狀態", "")
 
-    # ── 飛星總覽 ──
-    with st.expander("飛星追蹤（全部12宮）", expanded=False):
-        for hkey, fdata in report.get("飛星追蹤", {}).items():
-            st.markdown(
-                f"**{hkey}**：{fdata['廟主星']} → {fdata['飛入']} ｜ {fdata['主宰星力量']}"
-            )
+        score_class = "score-strong" if score >= 5 else ("score-weak" if score < 0 else "score-medium")
+        retro_mark = " ℞" if retro == "是" else ""
+        solar_mark = f" · {solar}" if solar and solar != "正常" else ""
 
-    # ── 廟旺互容 ──
-    receptions = report.get("廟旺互容", [])
-    if receptions:
-        with st.expander("廟旺互容", expanded=False):
-            for r in receptions:
-                st.markdown(f"{r['行星A']} ↔ {r['行星B']} · {r['互容類型']}")
+        st.markdown(
+            f'<div class="planet-row">'
+            f'<span class="planet-name">{planet_name}</span>'
+            f'<span class="planet-pos">{sign} {house}{retro_mark}{solar_mark}</span>'
+            f'<span class="planet-score {score_class}">{strength}（{score:+d}）</span>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
-    # ── 宮內多星 ──
-    multi = report.get("宮內多星分析", {})
-    if multi:
-        with st.expander("宮內多星分析", expanded=False):
-            for hkey, hdata in multi.items():
-                st.markdown(f"**{hkey}**：{hdata['整合判斷']}")
-                for p in hdata.get("宮內行星（強弱排序）", []):
-                    st.markdown(f"　{p['行星']} {p['分數']:+d} [{p['強弱']}] {p['吉凶性']}")
+# ── 托勒密相位 ──
+with st.expander("托勒密相位（核心）", expanded=False):
+    for asp in report.get("托勒密相位（核心）", []):
+        weight = asp["效力權重"]
+        color = "aspect-positive" if weight > 0 else ("aspect-negative" if weight < 0 else "")
+        st.markdown(
+            f'<div class="aspect-row {color}">'
+            f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} '
+            f'（{asp["容許度"]}）效力：{weight:+.1f}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
-    # ── JSON 匯出（給 Gem 用）──
-    st.markdown("---")
-    st.markdown('<div class="section-label">匯出給星命師 Gem</div>', unsafe_allow_html=True)
-    st.markdown("將下方 JSON 複製，貼給 Gemini 星命師 Gem 進行場景化解盤。")
+# ── 現代相位 ──
+with st.expander("現代相位（補充）", expanded=False):
+    modern = report.get("現代相位（補充）", [])
+    if modern:
+        for asp in modern:
+            st.markdown(f'{asp["行星A"]} {asp["相位"]} {asp["行星B"]} （{asp["容許度"]}）')
+    else:
+        st.markdown("無現代相位")
 
-    # 只匯出主題分析 + 基本盤面
-    export_data = {
-        "盤面基本資訊": report.get("盤面基本資訊", {}),
-        "七行星本體之力": report.get("七行星本體之力", {}),
-        "托勒密相位（核心）": report.get("托勒密相位（核心）", []),
-        "現代相位（補充）": report.get("現代相位（補充）", []),
-        "廟旺互容": report.get("廟旺互容", []),
-        "飛星追蹤": report.get("飛星追蹤", {}),
-    }
-    if theme_data:
-        export_data[f"主題分析：{theme_zh}"] = theme_data
+# ── 飛星總覽 ──
+with st.expander("飛星追蹤（全部12宮）", expanded=False):
+    for hkey, fdata in report.get("飛星追蹤", {}).items():
+        st.markdown(
+            f"**{hkey}**：{fdata['廟主星']} → {fdata['飛入']} ｜ {fdata['主宰星力量']}"
+        )
 
-    export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
-    st.code(export_json, language="json")
-    st.download_button(
-        label="下載 JSON 報告",
-        data=export_json,
-        file_name=f"解盤報告_{theme_zh}.json",
-        mime="application/json"
-    )
+# ── 廟旺互容 ──
+receptions = report.get("廟旺互容", [])
+if receptions:
+    with st.expander("廟旺互容", expanded=False):
+        for r in receptions:
+            st.markdown(f"{r['行星A']} ↔ {r['行星B']} · {r['互容類型']}")
 
-    # 換主題
-    if st.button("← 換一個主題", use_container_width=True):
-        st.session_state.report = None
-        st.session_state.chart = None
-        st.rerun()
+# ── 宮內多星 ──
+multi = report.get("宮內多星分析", {})
+if multi:
+    with st.expander("宮內多星分析", expanded=False):
+        for hkey, hdata in multi.items():
+            st.markdown(f"**{hkey}**：{hdata['整合判斷']}")
+            for p in hdata.get("宮內行星（強弱排序）", []):
+                st.markdown(f"　{p['行星']} {p['分數']:+d} [{p['強弱']}] {p['吉凶性']}")
+
+# ── JSON 匯出（給 Gem 用）──
+st.markdown("---")
+st.markdown('<div class="section-label">匯出給星命師 Gem</div>', unsafe_allow_html=True)
+st.markdown("將下方 JSON 複製，貼給 Gemini 星命師 Gem 進行場景化解盤。")
+
+# 只匯出主題分析 + 基本盤面
+export_data = {
+    "盤面基本資訊": report.get("盤面基本資訊", {}),
+    "七行星本體之力": report.get("七行星本體之力", {}),
+    "托勒密相位（核心）": report.get("托勒密相位（核心）", []),
+    "現代相位（補充）": report.get("現代相位（補充）", []),
+    "廟旺互容": report.get("廟旺互容", []),
+    "飛星追蹤": report.get("飛星追蹤", {}),
+}
+if theme_data:
+    export_data[f"主題分析：{theme_zh}"] = theme_data
+
+export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
+st.code(export_json, language="json")
+st.download_button(
+    label="下載 JSON 報告",
+    data=export_json,
+    file_name=f"解盤報告_{theme_zh}.json",
+    mime="application/json"
+)
+
+# 換主題
+if st.button("← 換一個主題", use_container_width=True):
+    st.session_state.report = None
+    st.session_state.chart = None
+    st.rerun()
+```
