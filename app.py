@@ -5,7 +5,7 @@ import os
 
 # 引入計算引擎
 sys.path.insert(0, os.path.dirname(__file__))
-from astro_calculator import parse_chart, generate_report, THEME_NAMES, HOUSE_TOPICS
+from astro_calculator import parse_chart, generate_report, THEME_ZH as THEME_NAMES, HOUSE_TOPICS
 
 # ── 頁面設定 ──
 st.set_page_config(
