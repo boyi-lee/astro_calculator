@@ -594,13 +594,36 @@ def determine_sect(planets: dict) -> bool:
 # ─────────────────────────────────────────────
 
 def compute_dignity_score(planet: Planet, is_diurnal: bool) -> tuple[int, str]:
-    """計算行星綜合尊貴分數"""
+    """計算行星綜合尊貴分數——以 DIGNITY_LOOKUP 為主，解析旗標為輔"""
     score = 0
     en = planet.name_en
     sign_en = planet.sign_en
     dl = DIGNITY_LOOKUP.get(en, {})
 
-    # 基礎尊貴（從占星之門已解析的資料）
+    # ── 廟（Domicile）：查表優先 ──
+    if sign_en in dl.get("domicile", []):
+        planet.has_domicile = True
+        planet.has_detriment = False
+    # ── 陷（Detriment）：查表優先 ──
+    if sign_en in dl.get("detriment", []):
+        planet.has_detriment = True
+        planet.has_domicile = False
+
+    # ── 旺（Exaltation）：查表優先 ──
+    if sign_en in dl.get("exaltation", []):
+        planet.has_exaltation = True
+        planet.has_fall = False
+    # ── 落（Fall）：查表優先 ──
+    if sign_en in dl.get("fall", []):
+        planet.has_fall = True
+        planet.has_exaltation = False
+
+    # ── 三分性（Triplicity）：查表優先 ──
+    triplicity_key = "triplicity_day" if is_diurnal else "triplicity_night"
+    if sign_en in dl.get(triplicity_key, []):
+        planet.has_triplicity = True
+
+    # 計分
     if planet.has_domicile:
         score += DIGNITY_SCORES["domicile"]
     elif planet.has_exaltation:
@@ -613,25 +636,28 @@ def compute_dignity_score(planet: Planet, is_diurnal: bool) -> tuple[int, str]:
 
     if planet.has_triplicity:
         score += DIGNITY_SCORES["triplicity"]
-
     if planet.has_term:
         score += DIGNITY_SCORES["term"]
     if planet.has_face:
         score += DIGNITY_SCORES["face"]
 
-    # 若全部都是 peregrine
+    # 外來
     if not any([planet.has_domicile, planet.has_exaltation, planet.has_triplicity,
                 planet.has_term, planet.has_face, planet.has_detriment, planet.has_fall]):
         planet.is_peregrine = True
 
-    # 宮位加分
+    # 宮位強度
     score += HOUSE_STRENGTH.get(planet.house, 1)
 
-    # 太陽相位修正
+    # 太陽距離修正
     score += SOLAR_PHASE_MODIFIER.get(planet.solar_phase, 0)
 
     # 速度修正
     score += SPEED_MODIFIER.get(planet.speed, 0)
+
+    # 逆行額外扣分（已在 speed modifier 裡，但 speed 欄可能顯示「逆行」）
+    if planet.retrograde and planet.speed not in SPEED_MODIFIER:
+        score += SPEED_MODIFIER.get("逆行", -1)
 
     # 分類
     if score >= 8:
@@ -736,6 +762,20 @@ def collect_theme_factors(theme: str, planets: dict, houses: dict,
     positive_score = 0
     negative_score = 0
 
+    def dignity_only_score(p: Planet) -> int:
+        """只計算尊貴分數，不含宮位/速度/距日等修正"""
+        s = 0
+        if p.has_domicile: s += DIGNITY_SCORES["domicile"]
+        elif p.has_exaltation: s += DIGNITY_SCORES["exaltation"]
+        if p.has_detriment: s += DIGNITY_SCORES["detriment"]
+        elif p.has_fall: s += DIGNITY_SCORES["fall"]
+        if p.has_triplicity: s += DIGNITY_SCORES["triplicity"]
+        if p.has_term: s += DIGNITY_SCORES["term"]
+        if p.has_face: s += DIGNITY_SCORES["face"]
+        if p.retrograde: s -= 1
+        if p.solar_phase == "焦傷": s -= 2
+        return s
+
     # 分析相關宮位
     for h in relevant_houses:
         house_info = {}
@@ -750,10 +790,11 @@ def collect_theme_factors(theme: str, planets: dict, houses: dict,
                 house_info["lord_strength"] = lp.strength_label
                 house_info["lord_in_house"] = lp.house
                 house_info["lord_in_sign"] = lp.sign_zh
-                if lp.dignity_score > 0:
-                    positive_score += lp.dignity_score
-                else:
-                    negative_score += abs(lp.dignity_score)
+                ds = dignity_only_score(lp)
+                if ds > 0:
+                    positive_score += ds
+                elif ds < 0:
+                    negative_score += abs(ds)
 
         # 宮內行星
         planets_in_house = [p for p in planets.values() if p.house == h]
@@ -768,12 +809,14 @@ def collect_theme_factors(theme: str, planets: dict, houses: dict,
                 "retrograde": p.retrograde
             }
             house_info["planets_in_house"].append(pinfo)
-            if PLANET_NATURE.get(p.name_en) == "benefic":
-                positive_score += p.dignity_score
-            elif PLANET_NATURE.get(p.name_en) == "malefic":
-                negative_score += abs(min(p.dignity_score, 0))
-                if p.dignity_score < 0:
-                    negative_score += 1
+            nature = PLANET_NATURE.get(p.name_en, "neutral")
+            ds = dignity_only_score(p)
+            if nature == "benefic":
+                if ds > 0: positive_score += ds
+                elif ds < 0: negative_score += abs(ds)
+            elif nature == "malefic":
+                if ds < 0: negative_score += abs(ds) + 1
+                else: negative_score += 1  # 凶星即使外來也有基礎壓力
 
         factors["house_analysis"][f"house_{h}"] = house_info
 
@@ -1123,7 +1166,7 @@ def generate_report(chart: Chart, theme: str = None) -> dict:
             continue
         report["七行星本體之力"][p.name_zh] = {
             "星座": p.sign_zh,
-            "宮位": f"第{p.house}宮（{HOUSE_TYPE.get(p.house,'?')}）",
+            "宮位": f"第{p.house}宮（{'角宮' if HOUSE_TYPE.get(p.house)=='angular' else '續宮' if HOUSE_TYPE.get(p.house)=='succedent' else '果宮'}）",
             "逆行": "是" if p.retrograde else "否",
             "太陽距離狀態": p.solar_phase or "正常",
             "速度": p.speed,
